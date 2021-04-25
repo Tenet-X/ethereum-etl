@@ -1,0 +1,22 @@
+#!/bin/bash
+
+pwd=`pwd`
+provider_uri=http://34.121.93.85:8545
+project=g-hash-community
+topic_prefix=ethbeat
+
+[ -d logs ] || mkdir -p $pwd/log
+
+docker run --name=ethbeat \
+    -v $GOOGLE_APPLICATION_CREDENTIALS:/ethereum-etl/credentials_file.json:ro \
+    --env GOOGLE_APPLICATION_CREDENTIALS=/ethereum-etl/credentials_file.json \
+    -v $pwd/log:/log:rw \
+    --cpuset-cpus="0,1" \
+    --restart=unless-stopped \
+    -m 512M --memory-swap -1 \
+    -d gcr.io/g-hash-community/ethereum-etl stream \
+    -e block,transaction \
+    --log-file /log/log.txt \
+    --last-synced-block-file /log/last_synced_block.txt \
+    --provider-uri $provider_uri \
+    --output projects/$project/topics/$topic_prefix
