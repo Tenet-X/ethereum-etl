@@ -39,7 +39,9 @@ from ethereumetl.thread_local_proxy import ThreadLocalProxy
                    'file://$HOME/Library/Ethereum/geth.ipc or https://mainnet.infura.io')
 @click.option('-o', '--output', type=str,
               help='Either Google PubSub topic path e.g. projects/your-project/topics/crypto_ethereum; '
-                   'or Postgres connection url e.g. postgresql+pg8000://postgres:admin@127.0.0.1:5432/ethereum. '
+                   'or Postgres connection url e.g. postgresql+pg8000://postgres:admin@127.0.0.1:5432/ethereum; '
+                   'or GCS bucket e.g. gs://your-bucket-name; '
+                   'or kafka, output name and connection host:port e.g. kafka/127.0.0.1:9092 '
                    'If not specified will print to console')
 @click.option('-s', '--start-block', default=None, show_default=True, type=int, help='Start block')
 @click.option('-e', '--entity-types', default=','.join(EntityType.ALL_FOR_INFURA), show_default=True, type=str,
@@ -56,9 +58,7 @@ def stream(last_synced_block_file, lag, provider_uri, output, start_block, entit
     configure_logging(log_file)
     configure_signals()
     entity_types = parse_entity_types(entity_types)
-    validate_entity_types(entity_types, output)
 
-    from ethereumetl.streaming.item_exporter_creator import create_item_exporter
     from ethereumetl.streaming.eth_streamer_adapter import EthStreamerAdapter
     from blockchainetl.streaming.streamer import Streamer
 
@@ -96,12 +96,6 @@ def parse_entity_types(entity_types):
                     .format(entity_type, ','.join(EntityType.ALL_FOR_STREAMING)))
 
     return entity_types
-
-
-def validate_entity_types(entity_types, output):
-    if output is not None and 'postgres' in output \
-            and (EntityType.CONTRACT in entity_types or EntityType.TOKEN in entity_types):
-        raise ValueError('contract and token are not yet supported entity types for postgres item exporter.')
 
 
 def pick_random_provider_uri(provider_uri):

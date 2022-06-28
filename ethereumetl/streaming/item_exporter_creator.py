@@ -57,7 +57,7 @@ def create_item_exporter(output):
         from blockchainetl.jobs.exporters.converters.unix_timestamp_item_converter import UnixTimestampItemConverter
         from blockchainetl.jobs.exporters.converters.int_to_decimal_item_converter import IntToDecimalItemConverter
         from blockchainetl.jobs.exporters.converters.list_field_item_converter import ListFieldItemConverter
-        from ethereumetl.streaming.postgres_tables import BLOCKS, TRANSACTIONS, LOGS, TOKEN_TRANSFERS, TRACES
+        from ethereumetl.streaming.postgres_tables import BLOCKS, TRANSACTIONS, LOGS, TOKEN_TRANSFERS, TRACES, TOKENS, CONTRACTS
 
         item_exporter = PostgresItemExporter(
             output, item_type_to_insert_stmt_mapping={
@@ -66,6 +66,8 @@ def create_item_exporter(output):
                 'log': create_insert_statement_for_table(LOGS),
                 'token_transfer': create_insert_statement_for_table(TOKEN_TRANSFERS),
                 'trace': create_insert_statement_for_table(TRACES),
+                'token': create_insert_statement_for_table(TOKENS),
+                'contract': create_insert_statement_for_table(CONTRACTS),
             },
             converters=[UnixTimestampItemConverter(), IntToDecimalItemConverter(),
                         ListFieldItemConverter('topics', 'topic', fill=4)])
@@ -75,6 +77,18 @@ def create_item_exporter(output):
         item_exporter = GcsItemExporter(bucket=bucket, path=path)
     elif item_exporter_type == ItemExporterType.CONSOLE:
         item_exporter = ConsoleItemExporter()
+    elif item_exporter_type == ItemExporterType.KAFKA:
+        from blockchainetl.jobs.exporters.kafka_exporter import KafkaItemExporter
+        item_exporter = KafkaItemExporter(output, item_type_to_topic_mapping={
+            'block': 'blocks',
+            'transaction': 'transactions',
+            'log': 'logs',
+            'token_transfer': 'token_transfers',
+            'trace': 'traces',
+            'contract': 'contracts',
+            'token': 'tokens',
+        })
+
     else:
         raise ValueError('Unable to determine item exporter type for output ' + output)
 
@@ -95,6 +109,8 @@ def get_bucket_and_path_from_gcs_output(output):
 def determine_item_exporter_type(output):
     if output is not None and output.startswith('projects'):
         return ItemExporterType.PUBSUB
+    if output is not None and output.startswith('kafka'):
+        return ItemExporterType.KAFKA
     elif output is not None and output.startswith('postgresql'):
         return ItemExporterType.POSTGRES
     elif output is not None and output.startswith('gs://'):
@@ -110,4 +126,5 @@ class ItemExporterType:
     POSTGRES = 'postgres'
     GCS = 'gcs'
     CONSOLE = 'console'
+    KAFKA = 'kafka'
     UNKNOWN = 'unknown'
